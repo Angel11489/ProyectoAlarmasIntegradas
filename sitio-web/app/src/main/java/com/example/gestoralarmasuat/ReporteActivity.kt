@@ -13,7 +13,7 @@ class ReporteActivity : AppCompatActivity() {
         val btnVolver = findViewById<Button>(R.id.btnVolver)
         val tvConsolaReporte = findViewById<TextView>(R.id.tvConsolaReporte)
 
-        val user = intent.getStringExtra("USUARIO") ?: "osiris@uat.edu.mx"
+        val user = intent.getStringExtra("USUARIO") ?: "osiris"
         val status = intent.getStringExtra("CRUD") ?: "SIN REGISTROS ACTIVOS"
         val alarm = intent.getStringExtra("ALARMA") ?: "Ninguna"
 
