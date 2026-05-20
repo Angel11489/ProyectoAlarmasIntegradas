@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Alarmas - Web Unificado</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .phone-container { background-color: #ffffff; width: 100%; max-width: 412px; min-height: 700px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: relative; display: flex; flex-direction: column; overflow-y: auto; }
+        .screen { display: none; flex-direction: column; padding: 24px; height: 100%; flex: 1; }
+        .active-screen { display: flex; }
+        h2 { text-align: center; color: #555555; margin-top: 20px; margin-bottom: 30px; font-size: 28px; font-weight: bold; }
+        input[type="email"], input[type="password"], input[type="time"] { width: 100%; padding: 12px 4px; margin-bottom: 24px; border: none; border-bottom: 2px solid #999999; font-size: 16px; outline: none; background: transparent; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 12px; }
+        .btn-light-gray { background-color: #E0E0E0; color: #000; }
+        .btn-dark-gray { background-color: #666666; color: #fff; }
+        .btn-black { background-color: #444444; color: #fff; margin-bottom: 40px; }
+        .btn-teal-gray { background-color: #788484; color: #fff; width: auto; align-self: center; padding: 12px 24px; }
+        
+        .seccion-registro, .seccion-reloj {
+            background-color: #f9f9f9;
+            border: 1px dashed #cccccc;
+            padding: 16px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            display: none;
+            flex-direction: column;
+        }
+
+        #tvMensajeAlarmas { text-align: center; font-size: 22px; color: #777777; margin-top: 20px; margin-bottom: 40px; }
+        .btn-volver { width: 100%; padding: 14px; background-color: #E0E0E0; color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer; }
+        #tvConsolaReporte { font-family: monospace; font-size: 15px; color: #555555; white-space: pre-wrap; padding: 20px 16px; line-height: 1.6; }
+        .toast { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); background-color: #323232; color: #fff; padding: 12px 24px; border-radius: 25px; font-size: 14px; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.3s; z-index: 10; }
+        .toast.show { opacity: 1; }
+        .toast-icon { width: 18px; height: 18px; background-color: #2ecc71; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div class="phone-container">
+        <div id="pantallaLogin" class="screen active-screen">
+            <h2>Iniciar Sesión</h2>
+            <input type="email" id="etCorreo" placeholder="Correo electrónico" value="admin@uat.edu.mx">
+            <input type="password" id="etContrasena" placeholder="Contraseña">
+            
+            <button class="btn btn-light-gray" onclick="ingresarAlSistema()">Ingresar al sistema</button>
+            <button class="btn btn-teal-gray" style="width:100%;" onclick="alternarRegistro()">Registrarse</button>
+
+            <div id="subFormularioRegistro" class="seccion-registro">
+                <h4 style="color:#555; margin-bottom: 12px;">Crear Nueva Cuenta</h4>
+                <input type="email" id="etNuevoCorreo" placeholder="Introduce nuevo correo">
+                <input type="password" id="etNuevaContrasena" placeholder="Introduce contraseña">
+                <button class="btn btn-dark-gray" onclick="registrarCuentaMismaPestana()">Confirmar Registro</button>
+            </div>
+        </div>
+
+        <div id="pantallaMain" class="screen">
+            <div id="tvMensajeAlarmas">No tienes alarmas programadas</div>
+            
+            <button class="btn btn-light-gray" onclick="mostrarSelectorReloj()">Crear</button>
+            
+            <div id="seccionRelojWeb" class="seccion-reloj">
+                <h4 style="color:#555; margin-bottom: 8px;">Selecciona la hora de la alarma:</h4>
+                <input type="time" id="inputReloj">
+                <button class="btn btn-dark-gray" style="margin-bottom:0;" onclick="confirmarHoraAlarmaWeb()">Aceptar</button>
+            </div>
+
+            <button class="btn btn-dark-gray" onclick="mostrarToast()">Eliminar Alarma</button>
+            <button class="btn btn-black" onclick="generarReporte()">Generar Reporte</button>
+            <button class="btn btn-teal-gray" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+
+        <div id="pantallaReporte" class="screen" style="padding: 0;">
+            <button class="btn-volver" onclick="volverAlPanel()">VOLVER AL PANEL</button>
+            <div id="tvConsolaReporte"></div>
+        </div>
+
+        <div id="androidToast" class="toast">
+            <div class="toast-icon"></div>
+            <span>Alarma eliminada</span>
+        </div>
+    </div>
+
+    <script>
+        let usuarioActivo = "admin@uat.edu.mx";
+        let estadoCrud = "SIN REGISTROS ACTIVOS";
+        let alarmaMemoria = "Ninguna";
+
+        function cambiarPantalla(ocultar, mostrar) {
+            document.getElementById(ocultar).classList.remove('active-screen');
+            document.getElementById(mostrar).classList.add('active-screen');
+        }
+
+        function ingresarAlSistema() {
+            const correo = document.getElementById('etCorreo').value;
+            if(correo.trim() !== "") {
+                usuarioActivo = correo;
+                cambiarPantalla('pantallaLogin', 'pantallaMain');
+            }
+        }
+
+        function alternarRegistro() {
+            const divReg = document.getElementById('subFormularioRegistro');
+            divReg.style.display = (divReg.style.display === "flex") ? "none" : "flex";
+        }
+
+        function registrarCuentaMismaPestana() {
+            const nuevoCorreo = document.getElementById('etNuevoCorreo').value;
+            if(nuevoCorreo.trim() !== "") {
+                document.getElementById('etCorreo').value = nuevoCorreo;
+                document.getElementById('subFormularioRegistro').style.display = "none";
+                alert("Cuenta creada con éxito.");
+            }
+        }
+
+        function mostrarSelectorReloj() {
+            document.getElementById('seccionRelojWeb').style.display = "flex";
+        }
+
+        function confirmarHoraAlarmaWeb() {
+            const horaElegida = document.getElementById('inputReloj').value;
+            if (horaElegida) {
+                estadoCrud = "REGISTROS ACTIVOS";
+                alarmaMemoria = horaElegida;
+                document.getElementById('tvMensajeAlarmas').innerText = "Alarma Programada: " + horaElegida;
+                document.getElementById('seccionRelojWeb').style.display = "none";
+                alert("Notificación silenciosa: Alarma fijada a las " + horaElegida);
+            } else {
+                alert("Por favor selecciona una hora.");
+            }
+        }
+
+        function mostrarToast() {
+            const toast = document.getElementById('androidToast');
+            toast.classList.add('show');
+            estadoCrud = "SIN REGISTROS ACTIVOS";
+            alarmaMemoria = "Ninguna";
+            document.getElementById('tvMensajeAlarmas').innerText = "No tienes alarmas programadas";
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function generarReporte() {
+            const consola = document.getElementById('tvConsolaReporte');
+            consola.textContent = `=========================\n\nUsuario Activo: ${usuarioActivo}\nEstado del CRUD: ${estadoCrud}\nAlarma en memoria: ${alarmaMemoria}\n\nSincronización de Base de Datos: COMPLETA\nEstado de la App: OPERATIVA`;
+            cambiarPantalla('pantallaMain', 'pantallaReporte');
+        }
+
+        function cerrarSesion() { cambiarPantalla('pantallaMain', 'pantallaLogin'); }
+        function volverAlPanel() { cambiarPantalla('pantallaReporte', 'pantallaMain'); }
+    </script>
+</body>
+</html>
